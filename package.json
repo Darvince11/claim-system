@@ -2,6 +2,7 @@
     "name":  "upsa-claims",
     "version":  "1.0.0",
     "private":  true,
+    "engines":  {"node": "20.x"},
     "scripts":  {
                     "dev":  "concurrently -k -n API,WEB \"npm:dev:api\" \"npm:dev:web\"",
                     "dev:api":  "tsx watch --tsconfig apps/api/tsconfig.json apps/api/src/main.ts",

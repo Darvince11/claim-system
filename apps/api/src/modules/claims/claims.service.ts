@@ -62,7 +62,8 @@ export class ClaimsService {
     return this.db.$transaction(async tx=>{
       const {prior,requestHash}=await this.replay(tx,user,'claims.create',key,data);if(prior)return prior.result;
       const {total}=await this.validateDraft(tx,user,data);
-      const claim=await tx.claim.create({data:{lecturerId:user.id,departmentId:user.departmentId!,semesterId:data.semesterId,type:data.type,remarks:data.remarks,reference:`UPSA-${new Date().getUTCFullYear()}-${randomUUID().slice(0,8).toUpperCase()}`,totalHours:total.toString(),items:{create:data.items.map(item=>({...item,startsOn:new Date(item.startsOn),endsOn:new Date(item.endsOn),totalHours:totalHours([item]).toString()}))}}});
+      const items=data.items.map(item=>({...item,startsOn:new Date(item.startsOn),endsOn:new Date(item.endsOn),totalHours:totalHours([item]).toString()})) as Prisma.ClaimItemUncheckedCreateWithoutClaimInput[];
+      const claim=await tx.claim.create({data:{lecturerId:user.id,departmentId:user.departmentId!,semesterId:data.semesterId,type:data.type,remarks:data.remarks,reference:`UPSA-${new Date().getUTCFullYear()}-${randomUUID().slice(0,8).toUpperCase()}`,totalHours:total.toString(),items:{create:items}}});
       await tx.claimHistory.create({data:{claimId:claim.id,revision:0,toStatus:'DRAFT',actorId:user.id,actorName:user.name,comment:'Draft created'}});
       await audit(tx,user,'CLAIM_CREATED','Claim',claim.id,{version:claim.version});
       const result={id:claim.id,version:claim.version,status:claim.status};
@@ -81,7 +82,7 @@ export class ClaimsService {
       const updated=await tx.claim.updateMany({where:{id,version:expectedVersion},data:{semesterId:data.semesterId,type:data.type,remarks:data.remarks,totalHours:total.toString(),eligibleHours:0,calculation:Prisma.DbNull,version:{increment:1}}});
       if(!updated.count)throw new ConflictException('This claim changed. Reload it before continuing.');
       await tx.claimItem.deleteMany({where:{claimId:id}});
-      await tx.claimItem.createMany({data:data.items.map(item=>({...item,claimId:id,startsOn:new Date(item.startsOn),endsOn:new Date(item.endsOn),totalHours:totalHours([item]).toString()}))});
+      await tx.claimItem.createMany({data:data.items.map(item=>({...item,claimId:id,startsOn:new Date(item.startsOn),endsOn:new Date(item.endsOn),totalHours:totalHours([item]).toString()})) as Prisma.ClaimItemCreateManyInput[]});
       await tx.claimHistory.create({data:{claimId:id,revision:claim.revision,fromStatus:claim.status,toStatus:claim.status,actorId:user.id,actorName:user.name,comment:'Draft updated'}});
       await audit(tx,user,'CLAIM_UPDATED','Claim',id,{previousVersion:expectedVersion,version:expectedVersion+1});
       return {id,version:expectedVersion+1,status:claim.status};

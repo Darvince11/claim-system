@@ -112,7 +112,7 @@ export class AdminService {
       const created=[] as {id:string;email:string;staffId:string}[];
       for(const row of data.users){
         const {password,roles,...fields}=row;const passwordHash=await hash(password??data.defaultPassword!,12);
-        const saved=await tx.user.create({data:{...fields,passwordHash}});
+        const saved=await tx.user.create({data:{...fields,passwordHash} as Prisma.UserUncheckedCreateInput});
         const roleAssignments=roles.map(code=>{const roleId=roleByCode.get(code);if(!roleId)throw new UnprocessableEntityException(`Unknown role in import: ${code}`);return {userId:saved.id,roleId};});
         await tx.userRole.createMany({data:roleAssignments});
         const scopedRoles=roles.filter(code=>scopedRoleCodes.has(code));
@@ -147,7 +147,7 @@ export class AdminService {
       const roles=await tx.role.findMany({where:{code:{in:data.roles}}});
       await tx.userRole.deleteMany({where:{userId:id}});await tx.scopeGrant.deleteMany({where:{userId:id}});
       await tx.userRole.createMany({data:roles.map(role=>({userId:id,roleId:role.id}))});
-      await tx.scopeGrant.createMany({data:data.scopes.map(scope=>({...scope,userId:id,validFrom:scope.validFrom?new Date(scope.validFrom):new Date(),validTo:scope.validTo?new Date(scope.validTo):null})),skipDuplicates:true});
+      await tx.scopeGrant.createMany({data:data.scopes.map(scope=>({...scope,userId:id,validFrom:scope.validFrom?new Date(scope.validFrom):new Date(),validTo:scope.validTo?new Date(scope.validTo):null})) as Prisma.ScopeGrantCreateManyInput[],skipDuplicates:true});
       await tx.session.updateMany({where:{userId:id},data:{revokedAt:new Date()}});
       await audit(tx,user,'ROLES_ASSIGNED','User',id,{before:previous.map(r=>r.role.code),after:data});return {ok:true};
     },{isolationLevel:'Serializable'});
