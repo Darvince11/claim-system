@@ -1,0 +1,10 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './app/auth';
+import { Landing } from './features/public/Landing';
+import { Login, ResetPassword } from './features/public/Login';
+import { AppRoutes } from './app/routes';
+import './styles/global.css';
+import './styles/claims.css';
+createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><AuthProvider><Routes><Route path="/about" element={<Landing/>}/><Route path="/login" element={<Login/>}/><Route path="/reset-password" element={<ResetPassword/>}/><Route path="/*" element={<AppRoutes/>}/></Routes></AuthProvider></BrowserRouter></StrictMode>);

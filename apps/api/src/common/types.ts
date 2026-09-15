@@ -1,0 +1,1 @@
+export interface Identity { id:string; name:string; email:string; staffId:string; title:string; employmentType:string; category:string; departmentId:string|null; departmentName:string; facultyName:string; roles:string[]; permissions:string[]; scopes:{roleCode:string;departmentId:string}[]; sessionId:string; }

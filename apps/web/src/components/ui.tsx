@@ -1,0 +1,20 @@
+import { useEffect, useRef, ReactNode, useState } from 'react';
+import { AlertCircle, X, ArrowLeft, ArrowRight, LoaderCircle, FileText } from 'lucide-react';
+export function Loading(){return <div className="loading" role="status"><LoaderCircle className="spin" size={25}/><span>Loading your workspace…</span></div>;}
+export function ErrorNotice({message}:{message:string}){return message?<div className="error-notice" role="alert"><AlertCircle size={18}/>{message}</div>:null;}
+export function Empty({title='Nothing here yet',message,action}:{title?:string;message:string;action?:ReactNode}){return <div className="empty"><div className="empty-icon"><FileText size={25}/></div><h3>{title}</h3><p>{message}</p>{action}</div>;}
+export const statusLabels:Record<string,string>={DRAFT:'Draft',SUBMITTED:'Submitted',HOD_REVIEW:'HOD review',HOD_APPROVED:'HOD approved',PRO_VC_REVIEW:'VC review',PRO_VC_APPROVED:'VC approved',AUDIT_REVIEW:'Audit review',AUDIT_CLEARED:'Audit cleared',AUDIT_QUERY:'Audit query',AUDIT_REJECTED:'Audit rejected',AWAITING_PAYMENT:'Awaiting payment',HOD_REJECTED:'Rejected by HOD',PRO_VC_REJECTED:'Rejected by VC',RETURNED_FOR_CORRECTION:'Returned',FINANCE_PROCESSING:'Processing',PAYMENT_PENDING:'Payment pending',PAYMENT_FAILED:'Payment failed',PAID:'Paid',CANCELLED:'Cancelled'};
+export function Status({status}:{status:string}){return <span className={`status status-${status.toLowerCase()}`}><span/>{statusLabels[status]??status}</span>;}
+export function PageHeader({eyebrow,title,description,action}:{eyebrow?:string;title:string;description?:string;action?:ReactNode}){return <div className="page-heading"><div>{eyebrow&&<span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1>{description&&<p>{description}</p>}</div>{action}</div>;}
+export function Pagination({page,total,pageSize,onPage}:{page:number;total:number;pageSize:number;onPage:(n:number)=>void}){return <div className="pagination"><span>{total?`${(page-1)*pageSize+1}–${Math.min(page*pageSize,total)} of ${total}`:'0 results'}</span><div><button className="button ghost small" disabled={page===1} onClick={()=>onPage(page-1)} aria-label="Previous page"><ArrowLeft size={15}/></button><span>Page {page}</span><button className="button ghost small" disabled={page*pageSize>=total} onClick={()=>onPage(page+1)} aria-label="Next page"><ArrowRight size={15}/></button></div></div>;}
+export function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){
+  const ref=useRef<HTMLDialogElement>(null);useEffect(()=>{const el=ref.current;const previous=document.activeElement as HTMLElement;el?.showModal();return()=>{el?.close();previous?.focus();};},[]);
+  return <dialog ref={ref} className="modal" onCancel={e=>{e.preventDefault();onClose();}}><div className="modal-heading"><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={20}/></button></div>{children}</dialog>;
+}
+export function useResource<T=any>(loader:()=>Promise<T>,deps:unknown[]=[]){
+  const [data,setData]=useState<T|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [revision,setRevision]=useState(0);
+  useEffect(()=>{let active=true;setLoading(true);setError('');loader().then(v=>{if(active)setData(v);}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[...deps,revision]);
+  return {data,loading,error,reload:()=>setRevision(v=>v+1)};
+}
+export const formatDate=(date?:string|null)=>date?new Intl.DateTimeFormat('en-GH',{day:'numeric',month:'short',year:'numeric'}).format(new Date(date)):'—';
+export const money=(amount:string,currency='GHS')=>new Intl.NumberFormat('en-GH',{style:'currency',currency}).format(Number(amount));

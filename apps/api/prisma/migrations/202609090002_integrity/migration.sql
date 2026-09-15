@@ -1,0 +1,13 @@
+ALTER TABLE "User" ADD CONSTRAINT "User_employmentType_check" CHECK ("employmentType" IN ('PART_TIME', 'FULL_TIME'));
+ALTER TABLE "AcademicYear" ADD CONSTRAINT "AcademicYear_dates_check" CHECK ("startsOn" <= "endsOn");
+ALTER TABLE "Semester" ADD CONSTRAINT "Semester_dates_check" CHECK ("startsOn" <= "endsOn");
+ALTER TABLE "ScopeGrant" ADD CONSTRAINT "ScopeGrant_dates_check" CHECK ("validTo" IS NULL OR "validTo" > "validFrom");
+ALTER TABLE "WorkloadRule" ADD CONSTRAINT "WorkloadRule_values_check" CHECK ("expectedWeeklyHours" >= 0 AND "effectiveFrom" <= "effectiveTo");
+ALTER TABLE "Workload" ADD CONSTRAINT "Workload_values_check" CHECK ("weeklyHours" > 0 AND "weeks" BETWEEN 1 AND 53 AND "startsOn" <= "endsOn");
+ALTER TABLE "ClaimItem" ADD CONSTRAINT "ClaimItem_values_check" CHECK ("weeklyHours" >= 0 AND "totalHours" >= 0 AND "weeks" BETWEEN 1 AND 53 AND "startsOn" <= "endsOn");
+ALTER TABLE "Claim" ADD CONSTRAINT "Claim_values_check" CHECK ("totalHours" >= 0 AND "eligibleHours" >= 0 AND "eligibleHours" <= "totalHours" AND "version" > 0 AND "revision" >= 0);
+ALTER TABLE "PaymentRate" ADD CONSTRAINT "PaymentRate_values_check" CHECK ("rate" > 0 AND "roundingPlaces" BETWEEN 0 AND 4 AND "currency" ~ '^[A-Z]{3}$');
+CREATE UNIQUE INDEX "PaymentRate_active_unique" ON "PaymentRate" ("category", "employmentType", "semesterId") WHERE "active";
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_values_check" CHECK ("amount" >= 0 AND "version" > 0 AND "currency" ~ '^[A-Z]{3}$' AND "status" IN ('PROCESSING', 'PENDING', 'PAID'));
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_paid_evidence_check" CHECK ("status" <> 'PAID' OR ("paidOn" IS NOT NULL AND "reference" IS NOT NULL AND length(trim("reference")) > 0));
+ALTER TABLE "Course" ADD CONSTRAINT "Course_creditHours_check" CHECK ("creditHours" BETWEEN 0 AND 30);

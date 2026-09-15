@@ -1,0 +1,432 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  HOD_REVIEW
+  HOD_REJECTED
+  RETURNED_FOR_CORRECTION
+  HOD_APPROVED
+  PRO_VC_REVIEW
+  PRO_VC_REJECTED
+  PRO_VC_APPROVED
+  AUDIT_REVIEW
+  AUDIT_CLEARED
+  AUDIT_QUERY
+  AUDIT_REJECTED
+  AWAITING_PAYMENT
+  FINANCE_PROCESSING
+  PAYMENT_PENDING
+  PAYMENT_FAILED
+  PAID
+  CANCELLED
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  staffId String @unique
+  name String
+  passwordHash String
+  active Boolean @default(true)
+  title String @default("Lecturer")
+  employmentType String @default("PART_TIME")
+  category String @default("LECTURER")
+  departmentId String? @db.Uuid
+  department Department? @relation(fields:[departmentId],references:[id])
+  roles UserRole[]
+  scopes ScopeGrant[]
+  sessions Session[]
+  claims Claim[]
+  notifications Notification[]
+  workloads Workload[]
+  resets ResetToken[]
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  @@index([departmentId])
+}
+model Role {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  permissions RolePermission[]
+  users UserRole[]
+  scopes ScopeGrant[]
+}
+model Permission {
+  code String @id
+  roles RolePermission[]
+}
+model RolePermission {
+  roleId String @db.Uuid
+  permissionCode String
+  role Role @relation(fields:[roleId],references:[id])
+  permission Permission @relation(fields:[permissionCode],references:[code])
+  @@id([roleId,permissionCode])
+  @@index([permissionCode])
+}
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  role Role @relation(fields:[roleId],references:[id])
+  @@id([userId,roleId])
+  @@index([roleId])
+}
+model ScopeGrant {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  roleCode String
+  role Role @relation(fields:[roleCode],references:[code])
+  validFrom DateTime @default(now()) @db.Timestamptz
+  validTo DateTime? @db.Timestamptz
+  departmentId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  department Department @relation(fields:[departmentId],references:[id])
+  @@unique([userId,roleCode,departmentId])
+  @@index([departmentId])
+}
+model Faculty {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  active Boolean @default(true)
+  departments Department[]
+}
+model Department {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  facultyId String @db.Uuid
+  faculty Faculty @relation(fields:[facultyId],references:[id])
+  active Boolean @default(true)
+  courses Course[]
+  users User[]
+  scopes ScopeGrant[]
+  claims Claim[]
+  @@index([facultyId])
+}
+model Course {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  title String
+  departmentId String @db.Uuid
+  department Department @relation(fields:[departmentId],references:[id])
+  active Boolean @default(true)
+  creditHours Int @default(3)
+  items ClaimItem[]
+  workloads Workload[]
+  @@index([departmentId])
+}
+model AcademicYear {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  startsOn DateTime @db.Date
+  endsOn DateTime @db.Date
+  active Boolean @default(true)
+  semesters Semester[]
+}
+model Semester {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  academicYearId String @db.Uuid
+  academicYear AcademicYear @relation(fields:[academicYearId],references:[id])
+  startsOn DateTime @db.Date
+  endsOn DateTime @db.Date
+  active Boolean @default(true)
+  claims Claim[]
+  workloads Workload[]
+  rates PaymentRate[]
+  @@unique([academicYearId,name])
+}
+model WorkloadRule {
+  id String @id @default(uuid()) @db.Uuid
+  category String
+  expectedWeeklyHours Decimal @db.Decimal(12,4)
+  effectiveFrom DateTime @db.Date
+  effectiveTo DateTime @db.Date
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model Workload {
+  id String @id @default(uuid()) @db.Uuid
+  lecturerId String @db.Uuid
+  lecturer User @relation(fields:[lecturerId],references:[id])
+  semesterId String @db.Uuid
+  semester Semester @relation(fields:[semesterId],references:[id])
+  courseId String @db.Uuid
+  course Course @relation(fields:[courseId],references:[id])
+  coverage ClaimCoverage?
+  weeklyHours Decimal @db.Decimal(12,4)
+  weeks Int
+  startsOn DateTime @db.Date
+  endsOn DateTime @db.Date
+  @@unique([lecturerId,semesterId,courseId])
+  @@index([semesterId])
+  @@index([courseId])
+}
+model Claim {
+  id String @id @default(uuid()) @db.Uuid
+  reference String @unique
+  lecturerId String @db.Uuid
+  lecturer User @relation(fields:[lecturerId],references:[id])
+  departmentId String @db.Uuid
+  department Department @relation(fields:[departmentId],references:[id])
+  semesterId String @db.Uuid
+  semester Semester @relation(fields:[semesterId],references:[id])
+  type String
+  status ClaimStatus @default(DRAFT)
+  version Int @default(1)
+  revision Int @default(0)
+  totalHours Decimal @default(0) @db.Decimal(12,4)
+  eligibleHours Decimal @default(0) @db.Decimal(12,4)
+  calculation Json?
+  remarks String @default("")
+  items ClaimItem[]
+  revisions ClaimRevision[]
+  history ClaimHistory[]
+  approvals Approval[]
+  coverage ClaimCoverage[]
+  payment Payment?
+  auditChecklistResponses AuditChecklistResponse[]
+  auditQueries AuditQuery[]
+  flags ClaimFlag[]
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  submittedAt DateTime? @db.Timestamptz
+  @@index([lecturerId,createdAt,id])
+  @@index([departmentId,status,submittedAt,id])
+  @@index([status,submittedAt,id])
+  @@index([semesterId,departmentId,status])
+}
+model ClaimCoverage {
+  workloadId String @id @db.Uuid
+  workload Workload @relation(fields:[workloadId],references:[id])
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id])
+  revision Int
+  @@index([claimId])
+}
+model ClaimItem {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id],onDelete:Cascade)
+  courseId String @db.Uuid
+  course Course @relation(fields:[courseId],references:[id])
+  startsOn DateTime @db.Date
+  endsOn DateTime @db.Date
+  weeklyHours Decimal @db.Decimal(12,4)
+  weeks Int
+  totalHours Decimal @db.Decimal(12,4)
+  remarks String @default("")
+  @@unique([claimId,courseId])
+  @@index([courseId])
+}
+model ClaimRevision {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id])
+  revision Int
+  snapshot Json
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([claimId,revision])
+}
+model ClaimHistory {
+  id String @id @default(uuid()) @db.Uuid
+  sequence Int @unique @default(autoincrement())
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id])
+  revision Int
+  fromStatus String?
+  toStatus String
+  actorId String @db.Uuid
+  actorName String
+  comment String @default("")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([claimId,createdAt])
+}
+model Approval {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id])
+  revision Int
+  reviewerId String @db.Uuid
+  stage String
+  decision String
+  comment String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([claimId,revision,stage])
+}
+model PaymentRate {
+  id String @id @default(uuid()) @db.Uuid
+  category String
+  employmentType String
+  semesterId String @db.Uuid
+  semester Semester @relation(fields:[semesterId],references:[id])
+  rate Decimal @db.Decimal(19,6)
+  currency String
+  roundingPlaces Int
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  payments Payment[]
+  @@index([semesterId,category,employmentType])
+}
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @unique @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id])
+  rateId String @db.Uuid
+  rate PaymentRate @relation(fields:[rateId],references:[id])
+  amount Decimal @db.Decimal(19,4)
+  currency String
+  calculation Json
+  status String @default("PROCESSING")
+  reference String?
+  paidOn DateTime? @db.Date
+  notes String @default("")
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([rateId])
+}
+model AuditChecklistItem {
+  id String @id @default(uuid()) @db.Uuid
+  label String @unique
+  active Boolean @default(true)
+  position Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  responses AuditChecklistResponse[]
+  @@index([active,position])
+}
+model AuditChecklistResponse {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id],onDelete:Restrict)
+  revision Int
+  itemId String @db.Uuid
+  item AuditChecklistItem @relation(fields:[itemId],references:[id],onDelete:Restrict)
+  auditorId String @db.Uuid
+  checked Boolean
+  note String @default("")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  @@unique([claimId,revision,itemId])
+  @@index([claimId,revision])
+}
+model AuditQuery {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id],onDelete:Restrict)
+  revision Int
+  auditorId String @db.Uuid
+  reason String
+  question String
+  status String @default("OPEN")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  resolvedAt DateTime? @db.Timestamptz
+  responses AuditQueryResponse[]
+  @@index([claimId,revision,status])
+}
+model AuditQueryResponse {
+  id String @id @default(uuid()) @db.Uuid
+  queryId String @db.Uuid
+  query AuditQuery @relation(fields:[queryId],references:[id],onDelete:Restrict)
+  responderId String @db.Uuid
+  message String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([queryId,createdAt])
+}
+model ClaimFlag {
+  id String @id @default(uuid()) @db.Uuid
+  claimId String @db.Uuid
+  claim Claim @relation(fields:[claimId],references:[id],onDelete:Restrict)
+  revision Int
+  createdById String @db.Uuid
+  type String
+  note String @default("")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([claimId,revision])
+  @@index([type,createdAt])
+}
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  familyId String @db.Uuid
+  tokenHash String @unique
+  expiresAt DateTime @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([userId])
+  @@index([familyId])
+}
+model ResetToken {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  tokenHash String @unique
+  expiresAt DateTime @db.Timestamptz
+  consumedAt DateTime? @db.Timestamptz
+  @@index([userId])
+}
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  recipientId String @db.Uuid
+  recipient User @relation(fields:[recipientId],references:[id])
+  eventKey String
+  title String
+  message String
+  claimId String? @db.Uuid
+  readAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([recipientId,eventKey])
+  @@index([recipientId,readAt,createdAt])
+}
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String? @db.Uuid
+  actorName String
+  roles String[]
+  action String
+  entityType String
+  entityId String?
+  metadata Json
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([entityType,entityId,createdAt])
+  @@index([actorId,createdAt])
+}
+model SystemSetting {
+  key String @id
+  value Json
+  version Int @default(1)
+  updatedAt DateTime @updatedAt @db.Timestamptz
+}
+model IdempotencyRecord {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String @db.Uuid
+  operation String
+  key String
+  requestHash String
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz
+  expiresAt DateTime? @db.Timestamptz
+  @@unique([actorId,operation,key])
+}
+
+model OutboxEvent {
+  id String @id @default(uuid()) @db.Uuid
+  eventKey String @unique
+  eventType String
+  aggregateId String @db.Uuid
+  payload Json
+  attempts Int @default(0)
+  availableAt DateTime @default(now()) @db.Timestamptz
+  lockedUntil DateTime? @db.Timestamptz
+  deliveredAt DateTime? @db.Timestamptz
+  lastError String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([deliveredAt,availableAt])
+}
