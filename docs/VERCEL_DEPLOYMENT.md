@@ -34,6 +34,8 @@ npm run db:migrate
 5. Push the deployment branch or click Redeploy in Vercel.
 6. Visit `https://your-project.vercel.app/api/v1/health/ready` before sharing the main URL.
 
+If that health URL does not return `{"data":{"status":"ready"}}`, do not share the sign-in page yet. Open the Vercel Function logs and correct the missing `DATABASE_URL`, `JWT_SECRET`, or migration before redeploying.
+
 ## Operational note
 
 Vercel Functions scale to zero and must be treated as request-driven. The current notification outbox is processed during application requests. For institution-wide production use, move email delivery and scheduled jobs to a dedicated queue or cron worker before enabling live email notifications.
