@@ -30,9 +30,9 @@ export class AdminService {
   async catalog(user:Identity) {
     const [faculties,departments,courses,semesters]=await Promise.all([this.db.faculty.findMany({where:{active:true}}),this.db.department.findMany({where:{active:true},include:{faculty:true}}),this.db.course.findMany({where:{active:true,...(user.permissions.includes('claims.create')&&!user.permissions.includes('courses.manage')?{departmentId:user.departmentId??'00000000-0000-0000-0000-000000000000'}:{})},orderBy:{code:'asc'}}),this.db.semester.findMany({include:{academicYear:true},orderBy:{startsOn:'desc'}})]);
     const academicYears=await this.db.academicYear.findMany({where:{active:true},orderBy:{startsOn:'desc'}});
-    const lecturers=user.permissions.includes('workloads.manage')?await this.db.user.findMany({where:{active:true,roles:{some:{role:{code:'LECTURER'}}}},select:{id:true,name:true,staffId:true},orderBy:{name:'asc'}}):[];
+    const lecturers=user.permissions.includes('workloads.manage')?await this.db.user.findMany({where:{active:true,roles:{some:{role:{code:'LECTURER'}}}},select:{id:true,name:true,staffId:true,departmentId:true,department:{select:{name:true}}},orderBy:{name:'asc'}}):[];
     const workloads=user.permissions.includes('claims.create')?await this.db.workload.findMany({where:{lecturerId:user.id,semester:{active:true}},select:{courseId:true,semesterId:true,weeklyHours:true,weeks:true,startsOn:true,endsOn:true},orderBy:{startsOn:'asc'}}):[];
-    return {faculties,departments,courses,semesters,academicYears,workloads:workloads.map(workload=>({...workload,weeklyHours:workload.weeklyHours.toString(),startsOn:workload.startsOn.toISOString(),endsOn:workload.endsOn.toISOString()})),lecturers:lecturers.map(lecturer=>({id:lecturer.id,name:`${lecturer.name} (${lecturer.staffId})`})),teachingSemesters:semesters.map(semester=>({id:semester.id,name:`${semester.academicYear.name} / ${semester.name}`})),teachingCourses:courses.map(course=>({id:course.id,name:`${course.code} - ${course.title}`}))};
+    return {faculties,departments,courses,semesters,academicYears,workloads:workloads.map(workload=>({...workload,weeklyHours:workload.weeklyHours.toString(),startsOn:workload.startsOn.toISOString(),endsOn:workload.endsOn.toISOString()})),lecturers:lecturers.map(lecturer=>({id:lecturer.id,name:`${lecturer.name} (${lecturer.staffId})`,departmentId:lecturer.departmentId,departmentName:lecturer.department?.name??'No department assigned'})),teachingSemesters:semesters.map(semester=>({id:semester.id,name:`${semester.academicYear.name} / ${semester.name}`,startsOn:semester.startsOn.toISOString(),endsOn:semester.endsOn.toISOString()})),teachingCourses:courses.map(course=>({id:course.id,name:`${course.code} - ${course.title}`,departmentId:course.departmentId}))};
   }
   async list(user:Identity,resource:string,page:number,pageSize:number,search:string) {
     const def=definitions[resource];if(!def) throw new UnprocessableEntityException('Unknown configuration resource.');requirePermission(user,def.permission);
@@ -54,7 +54,13 @@ export class AdminService {
         const lecturer=await tx.user.findUniqueOrThrow({where:{id:data.lecturerId}});
         const course=await tx.course.findUniqueOrThrow({where:{id:data.courseId}});
         const semester=await tx.semester.findUniqueOrThrow({where:{id:data.semesterId}});
-        if(!lecturer.active||!course.active||course.departmentId!==lecturer.departmentId||!semester.active||data.startsOn<semester.startsOn||data.endsOn>semester.endsOn||Number(data.weeklyHours)<=0||Number(data.weeklyHours)>168)throw new UnprocessableEntityException('Workload requires active matching lecturer/course records, positive weekly hours up to 168, and dates within the semester.');
+        if(!lecturer.active)throw new UnprocessableEntityException('The selected lecturer is inactive. Activate the staff account before recording an assignment.');
+        if(!lecturer.departmentId)throw new UnprocessableEntityException('The selected lecturer has no department assigned. Update the staff account before recording an assignment.');
+        if(!course.active)throw new UnprocessableEntityException('The selected course is inactive. Activate the course before recording an assignment.');
+        if(course.departmentId!==lecturer.departmentId)throw new UnprocessableEntityException('The selected course belongs to a different department from the lecturer. Select a course from the lecturer\'s department.');
+        if(!semester.active)throw new UnprocessableEntityException('The selected semester is inactive. Activate it before recording an assignment.');
+        if(data.startsOn<semester.startsOn||data.endsOn>semester.endsOn)throw new UnprocessableEntityException('Assignment dates must be within the selected semester.');
+        if(Number(data.weeklyHours)<=0||Number(data.weeklyHours)>168)throw new UnprocessableEntityException('Weekly hours must be greater than zero and no more than 168.');
       }
       if(id&&['payment-rates','workload-rules'].includes(resource)) {
         const compared=Object.keys(data).filter(k=>k!=='active').some(k=>String(data[k])!==String(before[k]));

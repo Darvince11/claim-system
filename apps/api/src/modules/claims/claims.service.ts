@@ -108,7 +108,7 @@ export class ClaimsService {
       if(claim.departmentId!==user.departmentId)throw new UnprocessableEntityException('Department transfers require an administrator to resolve claim routing.');
       const setting=await tx.systemSetting.findUnique({where:{key:'claim-submission-policy'}});
       const policy=submissionPolicy.safeParse(setting?.value);
-      if(!setting||!policy.success)throw new UnprocessableEntityException('Submission is blocked until an administrator records the approved teaching and eligibility policy. Your draft is saved.');
+      if(!setting||!policy.success)throw new UnprocessableEntityException('No approved claim policy is configured yet. An administrator must complete and save Claim policy before claims can be submitted. Your draft is saved.');
       const data=validate(draftInput,{semesterId:claim.semesterId,type:claim.type,remarks:claim.remarks,items:claim.items.map(item=>({courseId:item.courseId,startsOn:item.startsOn.toISOString().slice(0,10),endsOn:item.endsOn.toISOString().slice(0,10),weeklyHours:item.weeklyHours.toString(),weeks:item.weeks,remarks:item.remarks}))});
       const verified=await this.validateDraft(tx,user,data);
       if(!data.items.length||data.items.some(item=>Number(item.weeklyHours)<=0||!fullWeekCoverage(item)))throw new UnprocessableEntityException('Submission requires positive hours and contiguous full teaching weeks matching the selected dates.');

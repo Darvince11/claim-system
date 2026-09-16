@@ -81,6 +81,17 @@
   color: #0f2f3d;
 }
 
+.workspace-sidebar .nav-group { display: grid; gap: 4px; }
+.workspace-sidebar .nav-group-toggle { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 12px 13px; border: 0; border-radius: 10px; background: transparent; color: #cad9df; font: inherit; font-size: 13px; text-align: left; }
+.workspace-sidebar .nav-group-toggle:hover { background: rgba(255,255,255,.08); color: #fff; }
+.workspace-sidebar .nav-group-toggle.active { background: rgba(255,255,255,.12); color: #fff; font-weight: 600; }
+.workspace-sidebar .nav-group-toggle span { flex: 1; }
+.workspace-sidebar .nav-group-toggle svg:last-child { transition: transform .18s ease; }
+.workspace-sidebar .nav-group-toggle svg.is-open { transform: rotate(180deg); }
+.workspace-sidebar .nav-submenu { display: grid; gap: 2px; padding: 1px 0 6px 30px; }
+.workspace-sidebar nav .nav-submenu a { min-height: 34px; padding: 8px 10px; font-size: 12px; border-radius: 6px; }
+.workspace-sidebar nav .nav-submenu a.active { background: #fff; color: #0f2f3d; box-shadow: 0 6px 14px rgba(0,0,0,.1); }
+
 .workspace-topbar {
   height: 74px;
   padding: 0 40px;
