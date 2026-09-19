@@ -1,0 +1,6 @@
+name,email,staffId,title,employmentType,category,department,roles,password,active
+Dr Ama Mensah,lecturer@upsa.edu.gh,UPS-1001,Lecturer,PART_TIME,LECTURER,University Administration,LECTURER,UPSAlecturer@2013,true
+Dr Kwame Asante,hod@upsa.edu.gh,UPS-1002,Head of Department,FULL_TIME,LECTURER,University Administration,HOD,UPSAlecturer@2013,true
+Prof Esi Owusu,provc@upsa.edu.gh,UPS-1003,Pro Vice-Chancellor,FULL_TIME,LECTURER,University Administration,PRO_VC,UPSAlecturer@2013,true
+Kofi Adjei,auditor@upsa.edu.gh,UPS-1004,Internal Auditor,FULL_TIME,ADMINISTRATION,University Administration,AUDITOR,UPSAlecturer@2013,true
+Akosua Boateng,finance@upsa.edu.gh,UPS-1005,Finance Officer,FULL_TIME,ADMINISTRATION,University Administration,FINANCE,UPSAlecturer@2013,true
