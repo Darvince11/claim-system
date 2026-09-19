@@ -25,9 +25,9 @@ Create PostgreSQL with Render, Neon, or Supabase. Keep its SSL connection string
 
 `NODE_ENV`, `HOST`, and the cross-origin cookie setting are already supplied by `render.yaml`.
 
-4. Run `npm run db:migrate` once from the Render Shell, with the same `DATABASE_URL` set on the service.
-5. In the same Render Shell, set the four `BOOTSTRAP_ADMIN_*` values shown in `.env.example`, then run `npm run db:bootstrap-admin` once. This creates the first administrator plus the system roles and permissions. Do not run the development seed in production.
-6. Deploy and visit `https://YOUR-RENDER-SERVICE.onrender.com/api/v1/health/ready`. It must return `{"data":{"status":"ready"}}`.
+4. Add `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_STAFF_ID`, and `BOOTSTRAP_ADMIN_PASSWORD` as Render secrets before the first deploy. This creates the first administrator plus system roles and permissions. Do not run the development seed in production.
+5. Deploy. The Render build automatically applies Prisma migrations and creates the initial administrator only when none exists. Later deployments safely skip the bootstrap.
+6. Visit `https://YOUR-RENDER-SERVICE.onrender.com/api/v1/health/ready`. It must return `{"data":{"status":"ready"}}`.
 
 ## 3. Deploy the frontend on Vercel
 

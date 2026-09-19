@@ -2,7 +2,7 @@ services:
   - type: web
     name: upsa-claims-api
     runtime: node
-    buildCommand: npm ci --include=dev && npm run db:generate && npm run build:api
+    buildCommand: npm ci --include=dev && npm run db:generate && npm run db:migrate && if [ -n "$BOOTSTRAP_ADMIN_EMAIL" ]; then npm run db:bootstrap-admin; else echo "Skipping first-admin bootstrap"; fi && npm run build:api
     startCommand: npm start
     healthCheckPath: /api/v1/health/ready
     envVars:
@@ -18,3 +18,11 @@ services:
         sync: false
       - key: COOKIE_SAME_SITE
         value: none
+      - key: BOOTSTRAP_ADMIN_NAME
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_STAFF_ID
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
