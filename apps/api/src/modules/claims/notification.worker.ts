@@ -7,8 +7,9 @@ import { PrismaService } from '../../database/prisma.service';
 export class NotificationWorker implements OnModuleInit,OnModuleDestroy {
   private timer?:ReturnType<typeof setInterval>;
   private running:Promise<void>|null=null;
+  private lastFailureAt=0;
   constructor(@Inject(PrismaService) private db:PrismaService){}
-  onModuleInit(){this.timer=setInterval(()=>{if(!this.running)this.running=this.deliver().catch(()=>console.error('Notification delivery failed; pending events will be retried.')).finally(()=>{this.running=null;});},3000);}
+  onModuleInit(){this.timer=setInterval(()=>{if(!this.running)this.running=this.deliver().catch(error=>this.reportFailure(error)).finally(()=>{this.running=null;});},30000);}
   async onModuleDestroy(){clearInterval(this.timer);await this.running;}
   async deliver(){
     for(let count=0;count<10;count++){
@@ -30,5 +31,9 @@ export class NotificationWorker implements OnModuleInit,OnModuleDestroy {
         throw error;
       }
     }
+  }
+  private reportFailure(error:unknown){
+    const now=Date.now();if(now-this.lastFailureAt<300000)return;
+    this.lastFailureAt=now;console.error('Notification delivery failed; pending events will be retried.',error);
   }
 }
