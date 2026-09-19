@@ -7,7 +7,7 @@ import { AuthGuard, CurrentUser } from './auth.guard';
 import { Identity } from '../../common/types';
 import { validate, passwordInput, newPassword } from '../../common/validation';
 import { webOrigin } from '../../common/runtime';
-const cookieOptions=()=>({httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict' as const,path:'/api/v1/auth',maxAge:7*86400000});
+const cookieOptions=()=>({httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:(process.env.COOKIE_SAME_SITE==='none'?'none':'strict') as 'none'|'strict',path:'/api/v1/auth',maxAge:7*86400000});
 const authThrottle={default:{limit:Number(process.env.AUTH_RATE_LIMIT_MAX??8),ttl:Number(process.env.AUTH_RATE_LIMIT_TTL_MS??60000)}};
 const allowedRefreshOrigin=(origin:string|undefined)=>{
   if(!origin) return false;

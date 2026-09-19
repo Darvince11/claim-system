@@ -18,6 +18,7 @@
                     "test:e2e":  "playwright test",
                     "db:generate":  "prisma generate --schema apps/api/prisma/schema.prisma",
                     "db:migrate":  "prisma migrate deploy --schema apps/api/prisma/schema.prisma",
+                    "db:bootstrap-admin":  "tsx --tsconfig apps/api/tsconfig.json apps/api/prisma/bootstrap-admin.ts",
                     "db:seed":  "tsx --tsconfig apps/api/tsconfig.json apps/api/prisma/seed.ts",
                     "db:local":  "node scripts/local-database.mjs",
                     "start":  "node apps/api/dist/main.js"

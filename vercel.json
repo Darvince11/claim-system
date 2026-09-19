@@ -1,11 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run build:vercel",
+  "buildCommand": "npm run build:web",
   "outputDirectory": "apps/web/dist",
-  "functions": {"api/[...path].ts": {"maxDuration": 30}},
-  "routes": [
-    {"src": "/api/(.*)", "dest": "/api/[...path].ts"},
-    {"handle": "filesystem"},
-    {"src": "/(.*)", "dest": "/index.html"}
-  ]
+  "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]
 }
