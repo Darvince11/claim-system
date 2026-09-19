@@ -14,6 +14,7 @@ Create PostgreSQL with Render, Neon, or Supabase. Keep its SSL connection string
 
 1. Push this repository to GitHub.
 2. In Render, choose **New** then **Blueprint** and select this GitHub repository. Render reads `render.yaml`.
+   If you create the service manually, use `npm ci --include=dev && npm run db:generate && npm run build:api` as the Build Command and `npm start` as the Start Command.
 3. Add these secret environment variables to the API service:
 
 | Variable | Value |

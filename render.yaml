@@ -2,7 +2,7 @@ services:
   - type: web
     name: upsa-claims-api
     runtime: node
-    buildCommand: npm ci && npm run db:generate && npm run build:api
+    buildCommand: npm ci --include=dev && npm run db:generate && npm run build:api
     startCommand: npm start
     healthCheckPath: /api/v1/health/ready
     envVars:
