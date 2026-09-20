@@ -138,7 +138,7 @@ export class ClaimsService {
       await tx.claimRevision.create({data:{claimId:id,revision,snapshot}});
       await tx.claimHistory.createMany({data:[{claimId:id,revision,fromStatus:claim.status,toStatus:'SUBMITTED',actorId:user.id,actorName:user.name,comment:'Submitted for review'},{claimId:id,revision,fromStatus:'SUBMITTED',toStatus:'HOD_REVIEW',actorId:user.id,actorName:user.name,comment:'Routed to HOD review'}]});
       await audit(tx,user,'CLAIM_SUBMITTED','Claim',id,{revision,version:expectedVersion+1,eligibleHours:eligible.toString()});
-      await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${revision}:submitted`,eventType:'CLAIM_SUBMITTED',aggregateId:id,payload:{recipientIds:reviewers.map(reviewer=>reviewer.id),title:'Claim awaiting HOD review',message:`${claim.reference} was submitted by ${user.name}.`}}});
+      await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${revision}:submitted`,eventType:'CLAIM_SUBMITTED',aggregateId:id,payload:{recipientIds:reviewers.map(reviewer=>reviewer.id),title:'Action required: claim awaiting HOD review',message:`Claim ${claim.reference}, submitted by ${user.name}, requires your departmental review.`}}});
       const result={id,status:'HOD_REVIEW',version:expectedVersion+1,revision};
       await tx.idempotencyRecord.create({data:{actorId:user.id,operation,key,requestHash,result}});
       return result;
@@ -169,7 +169,11 @@ export class ClaimsService {
       await audit(tx,user,`CLAIM_HOD_${decision}`,'Claim',id,{revision:claim.revision,version:expectedVersion+1});
       if(decision==='APPROVE'){
         const recipients=await tx.user.findMany({where:{active:true,id:{not:claim.lecturerId},roles:{some:{role:{code:'PRO_VC',permissions:{some:{permissionCode:'claims.approve_provc'}}}}},scopes:{some:{roleCode:'PRO_VC',departmentId:claim.departmentId,validFrom:{lte:now},OR:[{validTo:null},{validTo:{gt:now}}]}}},select:{id:true}});
-        if(recipients.length)await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:hod-approved`,eventType:'CLAIM_HOD_APPROVED',aggregateId:id,payload:{recipientIds:recipients.map(recipient=>recipient.id),title:'Claim approved by HOD',message:`${claim.reference} has been approved by the HOD and is ready for Pro VC final review.`}}});
+        if(recipients.length)await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:hod-approved`,eventType:'CLAIM_HOD_APPROVED',aggregateId:id,payload:{recipientIds:recipients.map(recipient=>recipient.id),title:'Action required: claim awaiting Pro VC authorization',message:`Claim ${claim.reference} has completed departmental review and requires final authorization.`}}});
+        await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:hod-approved-lecturer`,eventType:'CLAIM_HOD_APPROVED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Departmental review completed',message:`Your claim ${claim.reference} has been approved by the Head of Department and forwarded for Pro VC authorization.`}}});
+      } else {
+        const returned=decision==='RETURN';
+        await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:hod-${decision.toLowerCase()}-lecturer`,eventType:`CLAIM_HOD_${decision}`,aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:returned?'Claim returned for correction':'Claim not approved by HOD',message:returned?`Your claim ${claim.reference} has been returned for correction. Review the HOD comment, update the claim, and resubmit it when ready.`:`Your claim ${claim.reference} was not approved by the Head of Department. Review the decision comment for the reason.`}}});
       }
       return {id,status:nextStatus,version:expectedVersion+1,revision:claim.revision};
     },{isolationLevel:'Serializable'});
@@ -191,7 +195,10 @@ export class ClaimsService {
       if(decision==='APPROVE'){
         const now=new Date();
         const recipients=await tx.user.findMany({where:{active:true,roles:{some:{role:{code:'AUDITOR',permissions:{some:{permissionCode:'claims.audit'}}}}},scopes:{some:{roleCode:'AUDITOR',departmentId:claim.departmentId,validFrom:{lte:now},OR:[{validTo:null},{validTo:{gt:now}}]}}},select:{id:true}});
-        if(recipients.length)await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:provc-approved`,eventType:'CLAIM_PROVC_APPROVED',aggregateId:id,payload:{recipientIds:recipients.map(recipient=>recipient.id),title:'Claim approved by VC',message:`${claim.reference} has been authorized by the VC and is ready for Internal Audit verification.`}}});
+        if(recipients.length)await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:provc-approved`,eventType:'CLAIM_PROVC_APPROVED',aggregateId:id,payload:{recipientIds:recipients.map(recipient=>recipient.id),title:'Action required: claim awaiting Internal Audit',message:`Claim ${claim.reference} has received Pro VC authorization and requires independent audit verification.`}}});
+        await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:provc-approved-lecturer`,eventType:'CLAIM_PROVC_APPROVED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Pro VC authorization completed',message:`Your claim ${claim.reference} has been authorized and forwarded to Internal Audit for verification.`}}});
+      } else {
+        await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:provc-rejected-lecturer`,eventType:'CLAIM_PROVC_REJECTED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Claim not authorized by Pro VC',message:`Your claim ${claim.reference} was not authorized. Review the Pro VC decision comment for the reason.`}}});
       }
       return {id,status:nextStatus,version:expectedVersion+1,revision:claim.revision};
     },{isolationLevel:'Serializable'});
@@ -213,7 +220,11 @@ export class ClaimsService {
       if(decision==='CLEAR'){
         const now=new Date();
         const recipients=await tx.user.findMany({where:{active:true,roles:{some:{role:{code:'FINANCE',permissions:{some:{permissionCode:'payments.process'}}}}},scopes:{some:{roleCode:'FINANCE',departmentId:claim.departmentId,validFrom:{lte:now},OR:[{validTo:null},{validTo:{gt:now}}]}}},select:{id:true}});
-        if(recipients.length)await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:audit-cleared`,eventType:'CLAIM_AUDIT_CLEARED',aggregateId:id,payload:{recipientIds:recipients.map(recipient=>recipient.id),title:'Claim cleared by Audit',message:`${claim.reference} has been cleared by Internal Audit and is ready for payment processing.`}}});
+        if(recipients.length)await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:audit-cleared`,eventType:'CLAIM_AUDIT_CLEARED',aggregateId:id,payload:{recipientIds:recipients.map(recipient=>recipient.id),title:'Action required: claim cleared for payment',message:`Claim ${claim.reference} has passed Internal Audit and is ready for Finance processing.`}}});
+        await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:audit-cleared-lecturer`,eventType:'CLAIM_AUDIT_CLEARED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Internal Audit clearance completed',message:`Your claim ${claim.reference} has passed Internal Audit and has been sent to Finance for payment processing.`}}});
+      } else {
+        const queried=decision==='QUERY';
+        await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:audit-${decision.toLowerCase()}-lecturer`,eventType:`CLAIM_AUDIT_${decision}`,aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:queried?'Action required: audit query raised':'Claim not cleared by Internal Audit',message:queried?`Internal Audit has raised a query on claim ${claim.reference}. Review the audit comment and provide the requested clarification.`:`Claim ${claim.reference} was not cleared by Internal Audit. Review the audit decision comment for the reason.`}}});
       }
       return {id,status:nextStatus,version:expectedVersion+1,revision:claim.revision};
     },{isolationLevel:'Serializable'});
@@ -228,6 +239,7 @@ export class ClaimsService {
       if(!updated.count)throw new ConflictException('This claim changed. Reload it before processing.');
       await tx.claimHistory.create({data:{claimId:id,revision:claim.revision,fromStatus:'AUDIT_CLEARED',toStatus:'FINANCE_PROCESSING',actorId:user.id,actorName:user.name,comment:'Finance processing started'}});
       await audit(tx,user,'CLAIM_FINANCE_STARTED','Claim',id,{revision:claim.revision,version:expectedVersion+1});
+      await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:finance-started`,eventType:'CLAIM_FINANCE_STARTED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Finance processing has started',message:`Finance has started processing payment for your claim ${claim.reference}. You will be notified once payment is completed.`}}});
       return {id,status:'FINANCE_PROCESSING',version:expectedVersion+1,revision:claim.revision};
     },{isolationLevel:'Serializable'});
   }
@@ -249,6 +261,7 @@ export class ClaimsService {
       const payment=await tx.payment.create({data:{claimId:id,rateId:rate.id,amount,currency:rate.currency,calculation,status:'PENDING'}});
       await tx.claimHistory.create({data:{claimId:id,revision:claim.revision,fromStatus:'FINANCE_PROCESSING',toStatus:'PAYMENT_PENDING',actorId:user.id,actorName:user.name,comment:`Payment calculated in ${rate.currency}`}});
       await audit(tx,user,'PAYMENT_PENDING','Payment',payment.id,{claimId:id,amount,currency:rate.currency,version:expectedVersion+1});
+      await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:payment-pending`,eventType:'PAYMENT_PENDING',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Payment prepared for release',message:`Payment details for your claim ${claim.reference} have been prepared and are awaiting final confirmation.`}}});
       return {id,status:'PAYMENT_PENDING',version:expectedVersion+1,payment:{id:payment.id,version:payment.version,amount:payment.amount.toString(),currency:payment.currency}};
     },{isolationLevel:'Serializable'});
   }
@@ -264,7 +277,7 @@ export class ClaimsService {
       const payment=await tx.payment.update({where:{id:claim.payment.id},data:{status:'PAID',reference:data.reference,paidOn:new Date(data.paidOn),notes:data.notes,version:{increment:1}}});
       await tx.claimHistory.create({data:{claimId:id,revision:claim.revision,fromStatus:'PAYMENT_PENDING',toStatus:'PAID',actorId:user.id,actorName:user.name,comment:'Payment recorded as completed'}});
       await audit(tx,user,'PAYMENT_COMPLETED','Payment',payment.id,{claimId:id,reference:data.reference,paidOn:data.paidOn,version:data.expectedVersion+1});
-      await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:payment-completed`,eventType:'PAYMENT_COMPLETED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Payment successful',message:`${claim.reference} has been processed successfully.`}}});
+      await tx.outboxEvent.create({data:{eventKey:`claim:${id}:revision:${claim.revision}:payment-completed`,eventType:'PAYMENT_COMPLETED',aggregateId:id,payload:{recipientIds:[claim.lecturerId],title:'Payment completed',message:`Payment for claim ${claim.reference} has been completed. Reference: ${data.reference}.`}}});
       return {id,status:'PAID',version:data.expectedVersion+1,payment:{id:payment.id,version:payment.version,status:payment.status,reference:payment.reference,paidOn:payment.paidOn}};
     },{isolationLevel:'Serializable'});
   }
