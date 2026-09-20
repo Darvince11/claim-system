@@ -15,15 +15,6 @@ export class WorkspaceController {
 
   @Get('profile') profile(@CurrentUser() user:Identity) { return {data:user}; }
 
-  @Patch('profile') async updateProfile(@CurrentUser() user:Identity,@Body() body:unknown) {
-    const data=validate(z.object({name:z.string().trim().min(3).max(100),title:z.string().trim().max(80)}).strict(),body);
-    await this.db.$transaction(async tx=>{
-      await tx.user.update({where:{id:user.id},data});
-      await audit(tx,user,'PROFILE_UPDATED','User',user.id,{before:{name:user.name,title:user.title},after:data});
-    });
-    return {data:await this.auth.identity(user.id,user.sessionId)};
-  }
-
   @Post('profile/change-password') async changePassword(@CurrentUser() user:Identity,@Body() body:unknown) {
     const data=validate(z.object({currentPassword:passwordInput,password:newPassword}).strict(),body);
     await this.auth.changePassword(user,data.currentPassword,data.password);
