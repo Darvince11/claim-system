@@ -11,6 +11,10 @@ export function Modal({title,children,onClose}:{title:string;children:ReactNode;
   const ref=useRef<HTMLDialogElement>(null);useEffect(()=>{const el=ref.current;const previous=document.activeElement as HTMLElement;el?.showModal();return()=>{el?.close();previous?.focus();};},[]);
   return <dialog ref={ref} className="modal" onCancel={e=>{e.preventDefault();onClose();}}><div className="modal-heading"><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={20}/></button></div>{children}</dialog>;
 }
+export function ConfirmPrompt({open,title,message,confirmLabel='Discard changes',onCancel,onConfirm}:{open:boolean;title:string;message:string;confirmLabel?:string;onCancel:()=>void;onConfirm:()=>void}){
+  if(!open)return null;
+  return <div role="presentation" style={{position:'fixed',inset:0,zIndex:120,display:'grid',placeItems:'center',padding:20,background:'rgba(16,47,64,.56)',backdropFilter:'blur(3px)'}}><section role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" style={{width:'min(420px, 100%)',background:'#fff',border:'1px solid #dfe8ec',borderRadius:8,padding:24,boxShadow:'0 24px 65px rgba(16,47,64,.28)'}}><h2 id="confirm-title" style={{fontSize:18,color:'#233e4d'}}>{title}</h2><p style={{marginTop:10,fontSize:12,lineHeight:1.7,color:'#647781'}}>{message}</p><div className="modal-actions" style={{marginTop:22}}><button className="button secondary" onClick={onCancel}>Keep editing</button><button className="button danger" onClick={onConfirm}>{confirmLabel}</button></div></section></div>;
+}
 export function useResource<T=any>(loader:()=>Promise<T>,deps:unknown[]=[]){
   const [data,setData]=useState<T|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [revision,setRevision]=useState(0);
   useEffect(()=>{let active=true;setLoading(true);setError('');loader().then(v=>{if(active)setData(v);}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[...deps,revision]);
